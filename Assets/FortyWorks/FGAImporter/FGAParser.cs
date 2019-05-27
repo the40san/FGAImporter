@@ -18,6 +18,7 @@ namespace FortyWorks.FGAImporter
 
         private float[] ParseFgaContent()
         {
+            // Remove CR or LF from content. Then parse all values as float.
             return _fgaContent
                 .Replace("\r", "")
                 .Replace("\n", "")
@@ -32,12 +33,8 @@ namespace FortyWorks.FGAImporter
             return value;
         }
 
-        private Texture3D CreateEmptyTexture(float[] parsedValue)
+        private Texture3D CreateEmptyTexture(int sizeX, int sizeY, int sizeZ)
         {
-            var sizeX = (int) parsedValue.ElementAtOrDefault(0);
-            var sizeY = (int) parsedValue.ElementAtOrDefault(1);
-            var sizeZ = (int) parsedValue.ElementAtOrDefault(2);
-            
             return new Texture3D(
                 sizeX,
                 sizeY,
@@ -53,11 +50,18 @@ namespace FortyWorks.FGAImporter
         public void Parse()
         {
             var allValues = ParseFgaContent();
-            var vectorField = CreateEmptyTexture(allValues);
+            // The first 3 values in fga is Vector Density in XYZ.
+            var density = new Vector3(allValues[0], allValues[1], allValues[2]);
+            // The next 6 values in fga is BB Size min XYZ, BB Size max XYZ.
+            var bbMinSize = new Vector3(allValues[3], allValues[4], allValues[5]);
+            var bbMaxSize = new Vector3(allValues[6], allValues[7], allValues[8]);
+            var mainVectors = allValues.Skip(9).ToArray();
             
-            var contentLength = allValues.Length - HeaderLength;
+            var vectorField = CreateEmptyTexture((int) density.x, (int) density.y, (int) density.z);
+            var contentLength = allValues.Length - 9;
             var resultLength = Mathf.RoundToInt(contentLength / 3f);
-            var mainVectors = allValues.Skip(HeaderLength - 1).ToArray();
+            
+            // The remap vector field to texture.
             var colors = Enumerable.Range(0, resultLength).Select(i =>
             {
                 var v = new Vector3(
@@ -71,6 +75,7 @@ namespace FortyWorks.FGAImporter
             vectorField.SetPixels(colors);
             vectorField.Apply(false);
             
+            // Save as asset.
             AssetDatabase.CreateAsset(vectorField, _outputPath);
         }
     }
